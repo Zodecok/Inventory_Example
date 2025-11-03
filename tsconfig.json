@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["dom", "ES2022"],
+    "module": "ESNext",
+    "jsx": "preserve",
+    "moduleResolution": "Bundler",
+    "strict": true,
+    "allowJs": false,
+    "noEmit": true,
+    "types": ["node"]
+  },
+  "include": ["app", "next-env.d.ts"]
+}
+
