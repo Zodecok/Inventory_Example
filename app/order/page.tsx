@@ -1,209 +1,169 @@
 "use client";
+import React from "react";
+import { postJSON, fetchCatalog, fetchCustomers } from "../lib/api";
 
-import Link from "next/link";
-import { useState } from "react";
-import { postJSON } from "../lib/api";
-
-interface Item {
-  sku: string;
-  name: string;
-  rate: number;
-  quantity: number;
-}
-
-interface Customer {
-  display_name: string;
-  email: string;
-}
+type CatItem = { sku: string; name: string; rate: number };
+type Cust   = { id: string; display_name: string; email?: string };
+type Row    = { sku: string; name: string; rate: number; quantity: number };
 
 export default function OrderPage() {
-  const [customer, setCustomer] = useState<Customer>({
-    display_name: "",
-    email: ""
-  });
-  const [items, setItems] = useState<Item[]>([
-    { sku: "", name: "", rate: 0, quantity: 1 }
-  ]);
-  const [response, setResponse] = useState<any>(null);
-  const [error, setError] = useState<string>("");
-  const [loading, setLoading] = useState(false);
+  const [catalog, setCatalog] = React.useState<CatItem[]>([]);
+  const [customers, setCustomers] = React.useState<Cust[]>([]);
+  const [selectedCustomerId, setSelectedCustomerId] = React.useState<string>("");
+  const [customer, setCustomer] = React.useState({ display_name: "", email: "" });
+  const [rows, setRows] = React.useState<Row[]>([{ sku:"", name:"", rate:0, quantity:1 }]);
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState<string | null>(null);
+  const [result, setResult] = React.useState<any>(null);
 
-  function addItem() {
-    setItems([...items, { sku: "", name: "", rate: 0, quantity: 1 }]);
+  React.useEffect(() => {
+    (async () => {
+      try {
+        const [cat, cust] = await Promise.all([fetchCatalog(), fetchCustomers()]);
+        setCatalog(cat.items || []);
+        setCustomers(cust.customers || []);
+      } catch (e:any) {
+        setError(e.message || "Failed to load dropdown data");
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
+
+  // When a customer is picked, prefill the manual fields (still editable)
+  function pickCustomer(id: string) {
+    setSelectedCustomerId(id);
+    const found = customers.find(c => c.id === id);
+    setCustomer({
+      display_name: found?.display_name || "",
+      email: found?.email || ""
+    });
   }
 
-  function removeItem(index: number) {
-    setItems(items.filter((_, i) => i !== index));
+  // Product select auto-fills name/rate
+  function pickProduct(idx:number, sku:string) {
+    const found = catalog.find(i => i.sku === sku);
+    setRows(prev => {
+      const next = [...prev];
+      next[idx] = {
+        sku,
+        name: found?.name || "",
+        rate: found?.rate ?? 0,
+        quantity: next[idx]?.quantity ?? 1
+      };
+      return next;
+    });
   }
 
-  function updateItem(index: number, field: keyof Item, value: any) {
-    const updated = [...items];
-    updated[index] = { ...updated[index], [field]: value };
-    setItems(updated);
+  function updateRow(idx:number, key:keyof Row, val:any) {
+    setRows(prev => {
+      const next = [...prev];
+      next[idx] = { ...next[idx], [key]: key==="rate"||key==="quantity" ? Number(val) : val };
+      return next;
+    });
   }
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setError("");
-    setResponse(null);
+  const addRow    = () => setRows(r => [...r, { sku:"", name:"", rate:0, quantity:1 }]);
+  const removeRow = (i:number) => setRows(r => r.filter((_,idx)=>idx!==i));
 
-    // Validation
-    if (!customer.display_name.trim()) {
-      setError("Customer display name is required");
+  async function submit() {
+    setError(null); setResult(null);
+    const clean = rows.filter(r => r.sku && r.quantity > 0);
+    if (!customer.display_name || clean.length === 0) {
+      setError("Please select a customer and at least one product.");
       return;
     }
-
-    const validItems = items.filter(item => item.quantity > 0);
-    if (validItems.length === 0) {
-      setError("At least one item with quantity > 0 is required");
-      return;
-    }
-
-    setLoading(true);
     try {
-      const data = await postJSON("/order", { customer, items: validItems });
-      setResponse(data);
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
+      const res = await postJSON("/order", {
+        customer_id: selectedCustomerId || undefined,
+        customer,
+        items: clean
+      });
+      setResult(res);
+    } catch (e:any) {
+      setError(e?.message || "Order failed");
     }
   }
 
   return (
-    <main style={{ padding: 24, maxWidth: 800 }}>
-      <h1>Create Order</h1>
+    <div className="container">
+      <h1 className="h1">Create Order</h1>
 
-      <form onSubmit={handleSubmit}>
-        <div style={{ marginBottom: 16 }}>
-          <h3>Customer</h3>
-          <div style={{ marginBottom: 8 }}>
-            <label>
-              Display Name:
-              <input
-                type="text"
-                value={customer.display_name}
-                onChange={(e) =>
-                  setCustomer({ ...customer, display_name: e.target.value })
-                }
-                style={{ marginLeft: 8, width: 300 }}
-                required
-              />
-            </label>
-          </div>
-          <div style={{ marginBottom: 8 }}>
-            <label>
-              Email:
-              <input
-                type="email"
-                value={customer.email}
-                onChange={(e) =>
-                  setCustomer({ ...customer, email: e.target.value })
-                }
-                style={{ marginLeft: 8, width: 300 }}
-              />
-            </label>
-          </div>
-        </div>
-
-        <div style={{ marginBottom: 16 }}>
-          <h3>Items</h3>
-          {items.map((item, index) => (
-            <div
-              key={index}
-              style={{
-                marginBottom: 12,
-                padding: 12,
-                border: "1px solid #ddd",
-                borderRadius: 4
-              }}
-            >
-              <div style={{ marginBottom: 8 }}>
-                <label>
-                  SKU:
-                  <input
-                    type="text"
-                    value={item.sku}
-                    onChange={(e) => updateItem(index, "sku", e.target.value)}
-                    style={{ marginLeft: 8, width: 150 }}
-                  />
-                </label>
-                <label style={{ marginLeft: 16 }}>
-                  Name:
-                  <input
-                    type="text"
-                    value={item.name}
-                    onChange={(e) => updateItem(index, "name", e.target.value)}
-                    style={{ marginLeft: 8, width: 200 }}
-                  />
-                </label>
+      <div className="card" style={{marginBottom:16}}>
+        <div className="row">
+          <div>
+            <label className="label">Customer (Zoho Books)</label>
+            <select className="input" value={selectedCustomerId} onChange={e=>pickCustomer(e.target.value)}>
+              <option value="">Select a customer…</option>
+              {customers.map(c => (
+                <option key={c.id} value={c.id}>
+                  {c.display_name}{c.email ? ` — ${c.email}` : ""}
+                </option>
+              ))}
+            </select>
+            {selectedCustomerId && (
+              <div style={{marginTop:8}} className="badge">
+                Selected: {customer.display_name}{customer.email ? ` • ${customer.email}` : ""}
               </div>
-              <div style={{ marginBottom: 8 }}>
-                <label>
-                  Rate:
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={item.rate}
-                    onChange={(e) =>
-                      updateItem(index, "rate", parseFloat(e.target.value) || 0)
-                    }
-                    style={{ marginLeft: 8, width: 100 }}
-                  />
-                </label>
-                <label style={{ marginLeft: 16 }}>
-                  Quantity:
-                  <input
-                    type="number"
-                    value={item.quantity}
-                    onChange={(e) =>
-                      updateItem(index, "quantity", parseInt(e.target.value) || 0)
-                    }
-                    style={{ marginLeft: 8, width: 100 }}
-                  />
-                </label>
-                {items.length > 1 && (
-                  <button
-                    type="button"
-                    onClick={() => removeItem(index)}
-                    style={{ marginLeft: 16, color: "red" }}
-                  >
-                    Remove
-                  </button>
-                )}
-              </div>
+            )}
+          </div>
+          <div>
+            <label className="label">Override / Manual (optional)</label>
+            <div className="row">
+              <input className="input" placeholder="Customer name"
+                     value={customer.display_name}
+                     onChange={e=>setCustomer({...customer, display_name:e.target.value})}/>
+              <input className="input" placeholder="Email"
+                     type="email"
+                     value={customer.email}
+                     onChange={e=>setCustomer({...customer, email:e.target.value})}/>
             </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="card">
+        <div style={{display:"flex", justifyContent:"space-between", alignItems:"center"}}>
+          <strong>Items</strong>
+          <button className="btn secondary" onClick={addRow}>+ Add Item</button>
+        </div>
+
+        <table className="table">
+          <thead>
+            <tr><th style={{width:"38%"}}>Product</th><th>Name</th><th style={{width:110}}>Rate</th><th style={{width:110}}>Qty</th><th style={{width:80}}></th></tr>
+          </thead>
+          <tbody>
+          {rows.map((r, idx) => (
+            <tr key={idx}>
+              <td>
+                <select className="input" value={r.sku} onChange={e=>pickProduct(idx, e.target.value)}>
+                  <option value="">Select product…</option>
+                  {catalog.map(it => (
+                    <option key={it.sku} value={it.sku}>
+                      {`${it.sku} — ${it.name} ($${it.rate.toFixed(2)})`}
+                    </option>
+                  ))}
+                </select>
+              </td>
+              <td><input className="input" value={r.name} onChange={e=>updateRow(idx,"name",e.target.value)} /></td>
+              <td><input className="input" type="number" step="0.01" value={r.rate} onChange={e=>updateRow(idx,"rate",e.target.value)} /></td>
+              <td><input className="input" type="number" step="1" min="1" value={r.quantity} onChange={e=>updateRow(idx,"quantity",e.target.value)} /></td>
+              <td><button className="btn secondary" onClick={()=>removeRow(idx)}>Remove</button></td>
+            </tr>
           ))}
-          <button type="button" onClick={addItem}>
-            Add Item
-          </button>
+          </tbody>
+        </table>
+
+        <div style={{marginTop:12}}>
+          <button className="btn" onClick={submit}>Submit Order</button>
+          {loading && <span className="badge" style={{marginLeft:12}}>Loading…</span>}
         </div>
 
-        <div style={{ marginBottom: 16 }}>
-          <button type="submit" disabled={loading}>
-            {loading ? "Submitting..." : "Submit Order"}
-          </button>
-        </div>
-      </form>
+        {error && <p style={{color:"#ff8080", marginTop:10}}>Error: {error}</p>}
+        {result && <pre style={{marginTop:12, background:"#0f1530", padding:12, borderRadius:10, overflow:"auto"}}>{JSON.stringify(result,null,2)}</pre>}
+      </div>
 
-      {error && (
-        <div style={{ color: "red", marginBottom: 16 }}>
-          <strong>Error:</strong> {error}
-        </div>
-      )}
-
-      {response && (
-        <div style={{ marginBottom: 16 }}>
-          <h3>Response:</h3>
-          <pre style={{ background: "#f5f5f5", padding: 12 }}>
-            {JSON.stringify(response, null, 2)}
-          </pre>
-        </div>
-      )}
-
-      <p>
-        <Link href="/">← Home</Link>
-      </p>
-    </main>
+      <p style={{marginTop:14}}><a href="/" className="btn secondary">Home</a></p>
+    </div>
   );
 }

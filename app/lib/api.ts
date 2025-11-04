@@ -16,3 +16,13 @@ export async function postJSON(path: string, body: any) {
   if (!res.ok) throw new Error(data?.error || `POST ${path} failed`);
   return data;
 }
+
+export async function fetchCatalog(q?: string) {
+  const url = q ? `/catalog?q=${encodeURIComponent(q)}` : "/catalog";
+  return getJSON(url); // { items:[{sku,name,rate}] }
+}
+
+export async function fetchCustomers(q?: string) {
+  const url = q ? `/customers?q=${encodeURIComponent(q)}` : "/customers";
+  return getJSON(url); // { customers:[{id,display_name,email}] }
+}
