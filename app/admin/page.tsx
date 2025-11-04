@@ -42,40 +42,40 @@ export default function AdminPage() {
   }
 
   return (
-    <main style={{ padding: 24, maxWidth: 800 }}>
-      <h1>Admin</h1>
+    <div className="container">
+      <h1 className="h1">Admin</h1>
 
-      <div style={{ marginBottom: 24 }}>
-        <button onClick={checkHealth} disabled={loading}>
+      <div className="card">
+        <h2 className="h3">API Health Check</h2>
+        <button className="btn" onClick={checkHealth} disabled={loading}>
           Check API Health
         </button>
         {healthData && (
-          <pre style={{ background: "#f5f5f5", padding: 12, marginTop: 8 }}>
+          <pre style={{ marginTop: "1rem" }}>
             {JSON.stringify(healthData, null, 2)}
           </pre>
         )}
       </div>
 
-      <div style={{ marginBottom: 24 }}>
-        <button onClick={connectZoho} style={{ marginRight: 8 }}>
-          Connect Zoho
-        </button>
-        <button onClick={fetchZohoStatus} disabled={loading}>
-          Refresh Status
-        </button>
+      <div className="card">
+        <h2 className="h3">Zoho Integration</h2>
+        <div style={{ display: "flex", gap: "0.75rem", marginBottom: "1rem" }}>
+          <button className="btn" onClick={connectZoho}>
+            Connect Zoho
+          </button>
+          <button className="btn secondary" onClick={fetchZohoStatus} disabled={loading}>
+            Refresh Status
+          </button>
+        </div>
         {zohoStatus && (
-          <div style={{ marginTop: 8 }}>
-            <h3>Zoho Status:</h3>
-            <pre style={{ background: "#f5f5f5", padding: 12 }}>
-              {JSON.stringify(zohoStatus, null, 2)}
-            </pre>
+          <div>
+            <div className="label" style={{ marginBottom: "0.5rem" }}>Current Status:</div>
+            <pre>{JSON.stringify(zohoStatus, null, 2)}</pre>
           </div>
         )}
       </div>
 
-      <p>
-        <Link href="/">← Home</Link>
-      </p>
-    </main>
+      <Link href="/" className="link-back">← Back to Home</Link>
+    </div>
   );
 }

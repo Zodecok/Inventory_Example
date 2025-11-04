@@ -2,9 +2,12 @@ import Link from "next/link";
 
 export default function Page() {
   return (
-    <main style={{ padding: 24 }}>
-      <h1>Zoho + Fishbowl Demo</h1>
-      <ul>
+    <div className="container">
+      <h1 className="h1">Zoho + Fishbowl Demo</h1>
+      <p style={{ color: "var(--text-secondary)", marginBottom: "2rem" }}>
+        A demonstration of Zoho Books integration with Fishbowl inventory management.
+      </p>
+      <ul className="nav-list">
         <li>
           <Link href="/products">Products</Link>
         </li>
@@ -15,6 +18,6 @@ export default function Page() {
           <Link href="/order">Order</Link>
         </li>
       </ul>
-    </main>
+    </div>
   );
 }
