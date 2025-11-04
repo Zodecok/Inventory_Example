@@ -26,3 +26,7 @@ export async function fetchCustomers(q?: string) {
   const url = q ? `/customers?q=${encodeURIComponent(q)}` : "/customers";
   return getJSON(url); // { customers:[{id,display_name,email}] }
 }
+
+export async function logoutZoho() {
+  return postJSON("/oauth/zoho/logout", {}); // { ok: true }
+}

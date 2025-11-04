@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { API, getJSON } from "../lib/api";
+import { API, getJSON, logoutZoho } from "../lib/api";
 
 export default function AdminPage() {
   const [healthData, setHealthData] = useState<any>(null);
   const [zohoStatus, setZohoStatus] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+  const [successMessage, setSuccessMessage] = useState<string>("");
 
   useEffect(() => {
     fetchZohoStatus();
@@ -41,6 +42,28 @@ export default function AdminPage() {
     window.location.href = `${API}/oauth/zoho/login`;
   }
 
+  async function handleLogout() {
+    setLoading(true);
+    setSuccessMessage("");
+    try {
+      const data = await logoutZoho();
+      if (data.ok) {
+        setSuccessMessage("Zoho disconnected successfully");
+        // Refresh status after logout
+        await fetchZohoStatus();
+        // Clear the success message after 5 seconds
+        setTimeout(() => setSuccessMessage(""), 5000);
+      }
+    } catch (error: any) {
+      setZohoStatus({ error: error.message });
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // Check if Zoho is connected
+  const isZohoConnected = zohoStatus && !zohoStatus.error && (zohoStatus.connected || zohoStatus.authenticated || zohoStatus.access_token);
+
   return (
     <div className="container">
       <h1 className="h1">Admin</h1>
@@ -59,10 +82,24 @@ export default function AdminPage() {
 
       <div className="card">
         <h2 className="h3">Zoho Integration</h2>
-        <div style={{ display: "flex", gap: "0.75rem", marginBottom: "1rem" }}>
-          <button className="btn" onClick={connectZoho}>
-            Connect Zoho
-          </button>
+
+        {successMessage && (
+          <div className="badge success" style={{ marginBottom: "1rem", display: "block" }}>
+            {successMessage}
+          </div>
+        )}
+
+        <div style={{ display: "flex", gap: "0.75rem", marginBottom: "1rem", flexWrap: "wrap" }}>
+          {!isZohoConnected && (
+            <button className="btn" onClick={connectZoho}>
+              Connect Zoho
+            </button>
+          )}
+          {isZohoConnected && (
+            <button className="btn" onClick={handleLogout} disabled={loading} style={{ background: "var(--error)" }}>
+              Disconnect Zoho
+            </button>
+          )}
           <button className="btn secondary" onClick={fetchZohoStatus} disabled={loading}>
             Refresh Status
           </button>
